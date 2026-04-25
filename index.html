@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autonomous Traffic Simulator</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#060a12;--s1:#0b1120;--s2:#0f1729;
+--b1:#182440;--b2:#1f3058;
+--a:#00ccee;--a2:#7c3aed;
+--g:#10b981;--y:#eab308;--r:#ef4444;--o:#f97316;--p:#a78bfa;
+--tx:#e2e8f0;--t2:#94a3b8;--t3:#475569;
+--mono:'Consolas',monospace;--rr:7px;--rs:4px;
+}
+html,body{width:100%;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--tx);font:12.5px/1.4 'Segoe UI',system-ui,sans-serif}
+#app{display:grid;grid-template-rows:38px 1fr;grid-template-columns:236px 1fr 256px;
+grid-template-areas:"h h h""l c r";height:100vh;width:100vw}
+header{grid-area:h;display:flex;align-items:center;gap:12px;padding:0 14px;
+background:var(--s1);border-bottom:1px solid var(--b1);z-index:20}
+header h1{font-size:.88rem;font-weight:800;
+background:linear-gradient(90deg,var(--a),var(--a2));
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hsp{flex:1}
+.bdg{display:flex;align-items:center;gap:5px;padding:2px 9px;border-radius:16px;
+background:var(--s2);border:1px solid var(--b1);font-size:.65rem;color:var(--t2)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--t3);transition:.3s}
+.dot.on{background:var(--g);box-shadow:0 0 6px var(--g)}.dot.pa{background:var(--y)}
+.keys{font-size:.6rem;color:var(--t3)}
+.pn{overflow-y:auto;overflow-x:hidden;background:var(--s1);padding:8px;
+display:flex;flex-direction:column;gap:6px}
+.pn::-webkit-scrollbar{width:3px}.pn::-webkit-scrollbar-thumb{background:var(--b2);border-radius:3px}
+#lp{grid-area:l;border-right:1px solid var(--b1)}
+#rp{grid-area:r;border-left:1px solid var(--b1)}
+#ca{grid-area:c;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+#cv{flex:1;display:block;cursor:crosshair}
+.tb{display:flex;align-items:center;gap:5px;padding:4px 10px;
+background:var(--s1);border-top:1px solid var(--b1);flex-shrink:0}
+.tb .sp{flex:1}
+.ttm{font:bold .7rem var(--mono);color:var(--t2);padding:2px 7px;
+background:var(--bg);border:1px solid var(--b1);border-radius:var(--rs)}
+.cd{background:var(--s2);border:1px solid var(--b1);border-radius:var(--rr);padding:9px;flex-shrink:0}
+.ct{font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.7px;
+color:var(--a);margin-bottom:7px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:3px;
+padding:4px 10px;border:none;border-radius:var(--rs);font-size:.7rem;font-weight:600;
+cursor:pointer;transition:.12s;outline:none}
+.btn:active{transform:scale(.95)}
+.bg{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+.by{background:linear-gradient(135deg,#eab308,#ca8a04);color:#000}
+.br{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+.bo{background:transparent;color:var(--t2);border:1px solid var(--b1)}
+.bo:hover{background:var(--b1);color:var(--tx)}
+.mg2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.mb{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;
+border:1.5px solid var(--b1);border-radius:var(--rs);background:transparent;
+color:var(--t2);font-size:.62rem;font-weight:600;cursor:pointer;transition:.18s}
+.mb .mi{font-size:1rem}
+.mb.on[data-m="safe"]{border-color:var(--g);color:var(--g);background:rgba(16,185,129,.06)}
+.mb.on[data-m="aggressive"]{border-color:var(--o);color:var(--o);background:rgba(249,115,22,.06)}
+.mb.on[data-m="emergency"]{border-color:var(--r);color:var(--r);background:rgba(239,68,68,.06)}
+.md2{margin-top:4px;padding:5px;background:var(--bg);border-radius:var(--rs);
+font-size:.63rem;color:var(--t2);line-height:1.5}
+.sr{display:flex;align-items:center;gap:5px;margin-bottom:4px}
+.sr label{min-width:78px;font-size:.66rem;color:var(--t2)}
+.sr input[type=range]{flex:1;height:2px;-webkit-appearance:none;appearance:none;
+background:var(--b2);border-radius:2px;outline:none}
+.sr input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;
+border-radius:50%;background:var(--a);cursor:pointer}
+.sv{min-width:28px;text-align:right;font:bold .65rem var(--mono);color:var(--a)}
+.stg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.st{background:var(--bg);border:1px solid var(--b1);border-radius:var(--rs);
+padding:6px;position:relative;overflow:hidden;text-align:center}
+.st::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.st.cb::before{background:var(--a)}.st.cg::before{background:var(--g)}
+.st.co::before{background:var(--o)}.st.cr::before{background:var(--r)}
+.st.cp::before{background:var(--p)}.st.cy::before{background:var(--y)}
+.st .v{font:bold 1rem var(--mono);color:var(--tx)}
+.st .l{font-size:.52rem;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
+.gw{margin-bottom:6px}
+.gh{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.gtt{font-size:.63rem;color:var(--t2);font-weight:600}
+.gc{font:bold .63rem var(--mono)}
+.gc.cg{color:var(--g)}.gc.co{color:var(--o)}.gc.cb{color:var(--a)}.gc.cp{color:var(--p)}
+canvas.mgr{width:100%;height:48px;background:var(--bg);border:1px solid var(--b1);
+border-radius:var(--rs);display:block}
+.tr2{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.tr2 label{font-size:.66rem;color:var(--t2)}
+.tg{position:relative;width:30px;height:16px;cursor:pointer;flex-shrink:0}
+.tg input{opacity:0;width:0;height:0}
+.tg .tk{position:absolute;inset:0;border-radius:16px;background:var(--b2);transition:.2s}
+.tg input:checked~.tk{background:var(--a)}
+.tg .tb2{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
+background:#fff;transition:.2s}
+.tg input:checked~.tb2{transform:translateX(14px)}
+.ie{text-align:center;padding:10px 0;color:var(--t3);font-size:.68rem;line-height:1.6}
+.ic{display:flex;flex-direction:column;gap:3px}
+.ch2{display:flex;align-items:center;gap:5px;margin-bottom:1px}
+.csw{width:14px;height:9px;border-radius:2px;border:1px solid rgba(255,255,255,.1);flex-shrink:0}
+.cid{font-size:.78rem;font-weight:700}
+.cmb{margin-left:auto;padding:1px 6px;border-radius:8px;font-size:.54rem;font-weight:700;text-transform:uppercase}
+.cmb.safe{background:rgba(16,185,129,.12);color:var(--g)}
+.cmb.aggressive{background:rgba(249,115,22,.12);color:var(--o)}
+.cmb.emergency{background:rgba(239,68,68,.12);color:var(--r)}
+.ir{display:flex;justify-content:space-between;align-items:center;padding:2px 4px;
+background:var(--bg);border-radius:3px;font-size:.64rem}
+.il{color:var(--t3)}.iv{font:600 .64rem var(--mono);color:var(--tx)}
+.iv.grn{color:var(--g)}.iv.ylw{color:var(--y)}.iv.rdd{color:var(--r)}.iv.blu{color:var(--a)}
+.sbw{height:3px;background:var(--bg);border-radius:3px;overflow:hidden;margin:0 4px 2px}
+.sbf{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--a),var(--a2));transition:width .1s}
+.db{padding:4px 6px;border-radius:var(--rs);background:var(--bg);border:1px solid var(--b1);
+font-size:.62rem;color:var(--a2);font-style:italic;line-height:1.3}
+.el{background:var(--bg);border-radius:var(--rs);border:1px solid var(--b1);
+max-height:80px;overflow-y:auto;font:.6rem var(--mono)}
+.el::-webkit-scrollbar{width:2px}.el::-webkit-scrollbar-thumb{background:var(--b2)}
+.le{padding:2px 5px;border-bottom:1px solid var(--b1);display:flex;gap:5px}
+.le .lt2{color:var(--t3);flex-shrink:0}.le .lm{color:var(--t2)}
+.lm.w{color:var(--y)}.lm.d{color:var(--r)}.lm.g{color:var(--g)}.lm.i{color:var(--a)}
+.lgd{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.lce{background:var(--bg);border:1px solid var(--b1);border-radius:var(--rs);
+padding:4px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.ldr{font-size:.52rem;text-transform:uppercase;letter-spacing:.6px;color:var(--t3)}
+.lbr{display:flex;gap:3px}
+.blb{width:8px;height:8px;border-radius:50%;background:var(--b2);transition:.15s}
+.blb.r.on{background:#ff2d2d;box-shadow:0 0 5px #ff2d2d}
+.blb.y.on{background:#ffd700;box-shadow:0 0 5px #ffd700}
+.blb.g.on{background:#00ff88;box-shadow:0 0 5px #00ff88}
+.ltm{font:bold .58rem var(--mono);color:var(--t2)}
+@media(max-width:900px){
+#app{grid-template-columns:1fr;grid-template-rows:38px 1fr;grid-template-areas:"h""c"}
+#lp,#rp{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+<span style="font-size:1rem">🚗</span>
+<h1>AUTONOMOUS TRAFFIC SIM</h1>
+<div class="bdg"><div class="dot" id="sDot"></div><span id="sTxt">Stopped</span></div>
+<div class="hsp"></div>
+<span class="keys">[Space] Play · [R] Reset · [1-3] Mode · Click car</span>
+</header>
+<div class="pn" id="lp">
+<div class="cd">
+<div class="ct">🧠 AI Behavior</div>
+<div class="mg2">
+<button class="mb on" data-m="safe"><span class="mi">🛡️</span>Safe</button>
+<button class="mb" data-m="aggressive"><span class="mi">⚡</span>Aggro</button>
+<button class="mb" data-m="emergency"><span class="mi">🚨</span>Emerg</button>
+</div>
+<div class="md2" id="mD">Safe: Large gaps, early braking, full stops at yellows.</div>
+</div>
+<div class="cd">
+<div class="ct">⚙️ Configuration</div>
+<div class="sr"><label>Spawn Rate</label><input type="range" id="sR" min="0.02" max="3" step="0.02" value="0.5"><span class="sv" id="sRV">0.5s</span></div>
+<div class="sr"><label>Max Cars</label><input type="range" id="mC" min="10" max="500" step="5" value="120"><span class="sv" id="mCV">120</span></div>
+<div class="sr"><label>Green Time</label><input type="range" id="gT" min="2" max="25" step="0.5" value="7"><span class="sv" id="gTV">7s</span></div>
+<div class="sr"><label>Yellow Time</label><input type="range" id="yT" min="0.5" max="5" step="0.5" value="2"><span class="sv" id="yTV">2s</span></div>
+<div class="sr"><label>Sim Speed</label><input type="range" id="sS" min="0.1" max="8" step="0.1" value="1"><span class="sv" id="sSV">1.0×</span></div>
+<div class="sr"><label>Lanes/Dir</label><input type="range" id="nL" min="1" max="4" step="1" value="2"><span class="sv" id="nLV">2</span></div>
+<div class="sr"><label>Intersections</label><input type="range" id="nI" min="1" max="4" step="1" value="1"><span class="sv" id="nIV">1</span></div>
+<div class="sr"><label>Turn %</label><input type="range" id="tP" min="0" max="50" step="5" value="20"><span class="sv" id="tPV">20%</span></div>
+</div>
+<div class="cd">
+<div class="ct">🚦 Lights</div>
+<div class="lgd" id="lGd"></div>
+</div>
+<div class="cd">
+<div class="ct">🗺️ Overlays</div>
+<div class="tr2"><label>Sensor Cone</label><label class="tg"><input type="checkbox" id="oSe"><div class="tk"></div><div class="tb2"></div></label></div>
+<div class="tr2"><label>Velocity</label><label class="tg"><input type="checkbox" id="oVe"><div class="tk"></div><div class="tb2"></div></label></div>
+<div class="tr2"><label>ID Labels</label><label class="tg"><input type="checkbox" id="oLa"><div class="tk"></div><div class="tb2"></div></label></div>
+<div class="tr2"><label>Trails</label><label class="tg"><input type="checkbox" id="oTr"><div class="tk"></div><div class="tb2"></div></label></div>
+</div>
+<div class="cd">
+<div class="ct">📋 Events</div>
+<div class="el" id="eL"></div>
+</div>
+</div>
+<div id="ca">
+<canvas id="cv"></canvas>
+<div class="tb">
+<button class="btn bg" id="bP">▶ Play</button>
+<button class="btn by" id="bU">⏸</button>
+<button class="btn br" id="bR">↺ Reset</button>
+<div class="sp"></div>
+<div class="ttm" id="tTm">0:00</div>
+<button class="btn bo" id="bSt" title="Step">⏭</button>
+<button class="btn bo" id="bCa" title="Screenshot">📷</button>
+</div>
+</div>
+<div class="pn" id="rp">
+<div class="cd">
+<div class="ct">📊 Statistics</div>
+<div class="stg">
+<div class="st cb"><div class="v" id="xC">0</div><div class="l">Active</div></div>
+<div class="st cg"><div class="v" id="xF">0</div><div class="l">Flow/m</div></div>
+<div class="st co"><div class="v" id="xW">0s</div><div class="l">Wait</div></div>
+<div class="st cr"><div class="v" id="xN">0</div><div class="l">Near</div></div>
+<div class="st cp"><div class="v" id="xS">0</div><div class="l">Speed</div></div>
+<div class="st cy"><div class="v" id="xD">0</div><div class="l">Done</div></div>
+</div>
+</div>
+<div class="cd">
+<div class="ct">📈 Charts</div>
+<div class="gw"><div class="gh"><span class="gtt">Flow (cars/min)</span><span class="gc cg" id="gFC">0</span></div><canvas class="mgr" id="gFl" height="48"></canvas></div>
+<div class="gw"><div class="gh"><span class="gtt">Avg Wait (s)</span><span class="gc co" id="gWC">0</span></div><canvas class="mgr" id="gWa" height="48"></canvas></div>
+<div class="gw"><div class="gh"><span class="gtt">Avg Speed</span><span class="gc cb" id="gSC">0</span></div><canvas class="mgr" id="gSp" height="48"></canvas></div>
+<div class="gw"><div class="gh"><span class="gtt">Throughput</span><span class="gc cp" id="gTC">0</span></div><canvas class="mgr" id="gTh" height="48"></canvas></div>
+</div>
+<div class="cd">
+<div class="ct">🔍 Inspector</div>
+<div id="ins"><div class="ie">🖱️ Click car to inspect</div></div>
+</div>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const cl=(v,a,b)=>Math.max(a,Math.min(b,v));
+const dst=(ax,ay,bx,by)=>Math.hypot(bx-ax,by-ay);
+const rnd=(a,b)=>Math.random()*(b-a)+a;
+const rI=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick=a=>a[rI(0,a.length-1)];
+let _u=0;const uid=()=>++_u;
+const D={N:0,E:1,S:2,W:3};
+const DN=['North','East','South','West'];
+const DV=[{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}];
+const OPP=d=>(d+2)%4;
+const RT=d=>(d+1)%4;
+const LT=d=>(d+3)%4;
+const CC=['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#14b8a6','#60a5fa','#fb923c','#34d399','#fbbf24','#a78bfa','#38bdf8','#f472b6','#22d3ee','#c084fc','#4ade80'];
+
+// ═══ Spatial hash for collision ═══
+class SpatialHash {
+  constructor(cellSize) {
+    this.cs = cellSize;
+    this.map = new Map();
+  }
+  clear() { this.map.clear(); }
+  _key(x, y) { return (Math.floor(x / this.cs)) + ',' + (Math.floor(y / this.cs)); }
+  insert(car) {
+    const k = this._key(car.x, car.y);
+    if (!this.map.has(k)) this.map.set(k, []);
+    this.map.get(k).push(car);
+  }
+  query(x, y, radius) {
+    const results = [];
+    const cr = Math.ceil(radius / this.cs);
+    const cx = Math.floor(x / this.cs);
+    const cy = Math.floor(y / this.cs);
+    for (let dx = -cr; dx <= cr; dx++) {
+      for (let dy = -cr; dy <= cr; dy++) {
+        const k = (cx + dx) + ',' + (cy + dy);
+        const cell = this.map.get(k);
+        if (cell) results.push(...cell);
+      }
+    }
+    return results;
+  }
+}
+
+// ═══ Light Controller ═══
+class LC {
+  constructor(g, y) { this.gD = g; this.yD = y; this.arD = .6; this.st = { 0:'red',1:'red',2:'red',3:'red' }; this.ph = 0; this.pt = 0; this._ap(); }
+  _ap() { const NS = [0, 2], EW = [1, 3];
+    switch (this.ph) { case 0: NS.forEach(d => this.st[d] = 'green'); EW.forEach(d => this.st[d] = 'red'); break;
+      case 1: NS.forEach(d => this.st[d] = 'yellow'); break;
+      case 2: case 5: [0,1,2,3].forEach(d => this.st[d] = 'red'); break;
+      case 3: EW.forEach(d => this.st[d] = 'green'); NS.forEach(d => this.st[d] = 'red'); break;
+      case 4: EW.forEach(d => this.st[d] = 'yellow'); break; } }
+  _du() { return [this.gD, this.yD, this.arD, this.gD, this.yD, this.arD][this.ph]; }
+  update(dt) { this.pt += dt; if (this.pt >= this._du()) { this.ph = (this.ph + 1) % 6; this.pt = 0; this._ap(); } }
+  get(d) { return this.st[d]; }
+  rem() { return Math.max(0, this._du() - this.pt); }
+  cfg(o) { if (o.g !== undefined) this.gD = o.g; if (o.y !== undefined) this.yD = o.y; }
+}
+
+// ═══ AI Brain ═══
+const PR = {
+  safe: { ma: 10, cd: 12, eb: 28, mg: 18, th: 2.2, sr: 200, ygf: .55, sb: 18, msd: 20, ed: 34 },
+  aggressive: { ma: 16, cd: 20, eb: 32, mg: 5, th: .5, sr: 140, ygf: 1.5, sb: 4, msd: 5, ed: 16 },
+  emergency: { ma: 22, cd: 24, eb: 38, mg: 2, th: .2, sr: 160, ygf: 3, sb: 0, msd: 2, ed: 20 }
+};
+class Brain {
+  constructor(m = 'safe') { this.set(m); }
+  set(m) { this.mode = m; Object.assign(this, PR[m] || PR.safe); }
+  decide(i) {
+    const { speed, maxSpeed, gap, spdA, dL, lS, lR, inI, cross, collGap } = i;
+    let acc = Infinity, reason = 'cruising', brk = false;
+    // Hard collision prevention — highest priority
+    if (collGap !== null && collGap < 20) {
+      const stopAcc = -(speed * speed) / (2 * Math.max(collGap - 4, 0.5));
+      return { acc: Math.max(stopAcc, -this.eb), reason: '⛔ collision avoid', brk: true };
+    }
+    // Cross traffic emergency
+    if (cross !== null && cross < this.ed) return { acc: -this.eb, reason: '🚨 EMERGENCY', brk: true };
+    // IDM following
+    if (gap !== null && gap < this.sr) {
+      const dv = speed - (spdA || 0), s0 = this.mg, T = this.th, a = this.ma, b = this.cd;
+      const sStar = s0 + Math.max(0, speed * T + (speed * dv) / (2 * Math.sqrt(a * b)));
+      const gClean = Math.max(gap - 22, 0.1);
+      acc = Math.min(acc, a * (1 - Math.pow(speed / Math.max(maxSpeed, .1), 4) - Math.pow(sStar / gClean, 2)));
+      reason = 'following';
+    }
+    // Light
+    if (dL !== null && !inI) {
+      if (lS === 'red') { const sd = Math.max(dL - this.sb, 0.1), nd = (speed * speed) / (2 * sd);
+        if (nd > .3 || sd < this.sr * .55) { acc = Math.min(acc, -Math.min(nd * 1.4, this.eb)); reason = '🔴 red'; brk = true; }
+      } else if (lS === 'yellow') { const tt = speed > 0 ? dL / speed : 999;
+        if (tt >= (lR || 0) * this.ygf && dL > this.msd) { const sd = Math.max(dL - this.sb, 0.1), nd = (speed * speed) / (2 * sd);
+          acc = Math.min(acc, -Math.min(nd * 1.4, this.eb)); reason = '🟡 yellow'; brk = true; } else reason = '🟡 go'; } }
+    const free = this.ma * (1 - Math.pow(speed / Math.max(maxSpeed, .1), 4));
+    acc = Math.min(acc, free); if (acc === Infinity) acc = free;
+    acc = cl(acc, -this.eb, this.ma); if (acc < -.3) brk = true;
+    return { acc, reason, brk };
+  }
+}
+
+// ═══ Car ═══
+class Car {
+  constructor(c) {
+    this.id = uid(); this.x = c.x; this.y = c.y; this.dir = c.dir; this.lane = c.lane || 0;
+    this.color = c.color || pick(CC); this.brain = new Brain(c.mode || 'safe');
+    this.speed = 0; this.maxSpeed = rnd(50, 78); this.acc = 0; this.brk = false; this.reason = 'init';
+    this.W = 10; this.L = 20; this.spT = c.t || 0; this.wt = 0; this.alive = true; this.sel = false;
+    this.sn = {}; this.trail = []; this.trMx = 50;
+    // Turn state — simple 3-phase: straight-in, lateral-shift, straight-out
+    this.turnState = 0; // 0=not turning, 1=entering, 2=shifting, 3=exiting
+    this.turnTarget = -1;
+    this.turnEntryPos = null; // {x,y} where lateral shift starts
+    this.turnExitPos = null;  // {x,y} where lateral shift ends
+    this.turnExitDir = -1;
+    this.turnProgress = 0;
+    this.visualAngle = [0, Math.PI / 2, Math.PI, -Math.PI / 2][c.dir];
+    this.iIdx = -1;
+    this.hasTurnDecision = false;
+  }
+  get dv() { return DV[this.dir]; }
+  get fx() { return this.x + this.dv.x * (this.L / 2); }
+  get fy() { return this.y + this.dv.y * (this.L / 2); }
+  get isTurning() { return this.turnState > 0; }
+  
+  // AABB for collision
+  get bbox() {
+    return { x: this.x - this.W / 2 - 1, y: this.y - this.L / 2 - 1, w: this.W + 2, h: this.L + 2 };
+  }
+
+  update(dt, inp) {
+    const dec = this.brain.decide(inp);
+    this.acc = dec.acc; this.brk = dec.brk; this.reason = dec.reason; this.sn = inp;
+    
+    if (this.turnState === 2) {
+      // During lateral shift, cap speed
+      this.speed = cl(this.speed + this.acc * dt, 0, this.maxSpeed * 0.4);
+    } else {
+      this.speed = cl(this.speed + this.acc * dt, 0, this.maxSpeed);
+    }
+    if (this.speed < .8) this.wt += dt;
+
+    const step = this.speed * dt;
+
+    if (this.turnState === 0) {
+      // Normal straight driving
+      this.x += this.dv.x * step;
+      this.y += this.dv.y * step;
+      this.visualAngle = [0, Math.PI / 2, Math.PI, -Math.PI / 2][this.dir];
+    } else if (this.turnState === 1) {
+      // Phase 1: drive straight into intersection center area
+      this.x += this.dv.x * step;
+      this.y += this.dv.y * step;
+      // Check if we reached the entry point
+      const d = dst(this.x, this.y, this.turnEntryPos.x, this.turnEntryPos.y);
+      if (d < 4 || this._passedPoint(this.turnEntryPos)) {
+        this.x = this.turnEntryPos.x;
+        this.y = this.turnEntryPos.y;
+        this.turnState = 2;
+        this.turnProgress = 0;
+      }
+    } else if (this.turnState === 2) {
+      // Phase 2: smooth lateral shift from entry to exit point
+      const ex = this.turnExitPos.x, ey = this.turnExitPos.y;
+      const totalDist = dst(this.turnEntryPos.x, this.turnEntryPos.y, ex, ey);
+      this.turnProgress += step / Math.max(totalDist, 1);
+      this.turnProgress = cl(this.turnProgress, 0, 1);
+      // Smooth ease
+      const t = this.turnProgress;
+      const ease = t * t * (3 - 2 * t); // smoothstep
+      this.x = this.turnEntryPos.x + (ex - this.turnEntryPos.x) * ease;
+      this.y = this.turnEntryPos.y + (ey - this.turnEntryPos.y) * ease;
+      // Visual angle: interpolate
+      const startAngle = [0, Math.PI / 2, Math.PI, -Math.PI / 2][this.dir];
+      let endAngle = [0, Math.PI / 2, Math.PI, -Math.PI / 2][this.turnExitDir];
+      // Fix angle wrapping
+      let diff = endAngle - startAngle;
+      if (diff > Math.PI) diff -= 2 * Math.PI;
+      if (diff < -Math.PI) diff += 2 * Math.PI;
+      this.visualAngle = startAngle + diff * ease;
+      if (this.turnProgress >= 1) {
+        this.x = ex; this.y = ey;
+        this.dir = this.turnExitDir;
+        this.turnState = 3;
+        this.visualAngle = [0, Math.PI / 2, Math.PI, -Math.PI / 2][this.dir];
+      }
+    } else if (this.turnState === 3) {
+      // Phase 3: resume straight in new direction
+      this.x += this.dv.x * step;
+      this.y += this.dv.y * step;
+      this.turnState = 0; // immediately back to normal
+    }
+  }
+
+  _passedPoint(p) {
+    // Check if car has gone past this point in its current direction
+    const dv = this.dv;
+    const dx = p.x - this.x, dy = p.y - this.y;
+    return (dx * dv.x + dy * dv.y) <= 0;
+  }
+
+  setupTurn(targetDir, entryPt, exitPt) {
+    this.turnState = 1;
+    this.turnTarget = targetDir;
+    this.turnEntryPos = entryPt;
+    this.turnExitPos = exitPt;
+    this.turnExitDir = targetDir;
+    this.turnProgress = 0;
+  }
+
+  pushTrail() { this.trail.push({ x: this.x, y: this.y }); if (this.trail.length > this.trMx) this.trail.shift(); }
+  setMode(m) { this.brain.set(m); }
+
+  draw(ctx, ov) {
+    if (ov.trails && this.trail.length > 1) {
+      ctx.save();
+      for (let i = 1; i < this.trail.length; i++) {
+        const t = i / this.trail.length;
+        ctx.globalAlpha = t * .22; ctx.strokeStyle = this.color; ctx.lineWidth = t;
+        ctx.beginPath(); ctx.moveTo(this.trail[i - 1].x, this.trail[i - 1].y);
+        ctx.lineTo(this.trail[i].x, this.trail[i].y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1; ctx.restore();
+    }
+    ctx.save(); ctx.translate(this.x, this.y);
+    ctx.rotate(this.visualAngle);
+    const W = this.W, L = this.L;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; rrF(ctx, -W / 2 + 1.5, -L / 2 + 1.5, W, L, 3);
+    ctx.fillStyle = this.color; rrF(ctx, -W / 2, -L / 2, W, L, 3);
+    const gl = ctx.createLinearGradient(-W / 2, 0, W / 2, 0);
+    gl.addColorStop(0, 'rgba(255,255,255,.12)'); gl.addColorStop(.5, 'rgba(255,255,255,.02)'); gl.addColorStop(1, 'rgba(0,0,0,.04)');
+    ctx.fillStyle = gl; rrF(ctx, -W / 2, -L / 2, W, L, 3);
+    ctx.fillStyle = 'rgba(100,190,255,.25)'; ctx.fillRect(-W / 2 + 2, -L / 2 + 2, W - 4, 4);
+    ctx.fillStyle = 'rgba(100,190,255,.12)'; ctx.fillRect(-W / 2 + 2, L / 2 - 5, W - 4, 3);
+    ctx.fillStyle = 'rgba(255,255,210,.55)';
+    ctx.beginPath(); ctx.arc(-W / 2 + 2, -L / 2 + 1.5, 1.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(W / 2 - 2, -L / 2 + 1.5, 1.2, 0, Math.PI * 2); ctx.fill();
+    if (this.brk) { ctx.fillStyle = '#ff1a1a'; ctx.shadowColor = '#f00'; ctx.shadowBlur = 5;
+      ctx.fillRect(-W / 2, L / 2 - 2.5, 3, 2); ctx.fillRect(W / 2 - 3, L / 2 - 2.5, 3, 2); ctx.shadowBlur = 0; }
+    if (this.sel) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]);
+      ctx.strokeRect(-W / 2 - 3, -L / 2 - 3, W + 6, L + 6); ctx.setLineDash([]); }
+    ctx.restore();
+    if (ov.labels) { ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.font = 'bold 7px monospace';
+      ctx.textAlign = 'center'; ctx.fillText('#' + this.id, this.x, this.y - this.L / 2 - 3); }
+    if (ov.vectors && this.speed > 1) {
+      const vl = this.speed * .15;
+      const vx = Math.cos(this.visualAngle - Math.PI / 2) * vl;
+      const vy = Math.sin(this.visualAngle - Math.PI / 2) * vl;
+      ctx.save(); ctx.strokeStyle = 'rgba(0,200,255,.35)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x + vx, this.y + vy); ctx.stroke(); ctx.restore(); }
+    if (ov.sensors && this.sel) this._drawSensor(ctx);
+  }
+
+  _drawSensor(ctx) {
+    const R = this.brain.sr, dv = this.dv, fx = this.fx, fy = this.fy, cw = 25;
+    const ex = fx + dv.x * R, ey = fy + dv.y * R;
+    ctx.save();
+    const gr = ctx.createLinearGradient(fx, fy, ex, ey);
+    gr.addColorStop(0, 'rgba(0,200,255,.07)'); gr.addColorStop(1, 'rgba(0,200,255,0)');
+    ctx.fillStyle = gr;
+    ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(ex + dv.y * cw, ey - dv.x * cw); ctx.lineTo(ex - dv.y * cw, ey + dv.x * cw); ctx.closePath(); ctx.fill();
+    if (this.sn.gap !== null && this.sn.gap < R) {
+      const d = this.sn.gap, ratio = cl(d / R, 0, 1);
+      const cr = Math.floor(255 * (1 - ratio)), cg = Math.floor(200 * ratio);
+      const px = fx + dv.x * d, py = fy + dv.y * d;
+      ctx.fillStyle = `rgba(${cr},${cg},40,.5)`;
+      ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 7px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(Math.round(d) + '', px, py - 8);
+    }
+    ctx.restore();
+  }
+}
+
+function rrF(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath(); ctx.fill();
+}
+
+// ═══ Road Network ═══
+class RoadNet {
+  constructor(W, H, nL, nI) {
+    this.W = W; this.H = H; this.nL = nL; this.nI = nI;
+    this.laneW = cl(Math.floor(140 / (nL * 2)), 14, 28);
+    this.roadW = this.laneW * nL * 2;
+    this.ints = []; this._build(); this._bldgs = null; this._genBldgs();
+  }
+  _build() {
+    this.ints = []; const n = this.nI, W = this.W, H = this.H; const ps = [];
+    if (n === 1) ps.push([W / 2, H / 2]);
+    else if (n === 2) { const g = W * .28; ps.push([W / 2 - g, H / 2], [W / 2 + g, H / 2]); }
+    else if (n === 3) { const g = Math.min(W, H) * .22; ps.push([W / 2 - g, H / 2], [W / 2 + g, H / 2], [W / 2, H / 2 - g]); }
+    else { const gx = W * .2, gy = H * .2; ps.push([W / 2 - gx, H / 2 - gy], [W / 2 + gx, H / 2 - gy], [W / 2 - gx, H / 2 + gy], [W / 2 + gx, H / 2 + gy]); }
+    ps.forEach(([cx, cy]) => {
+      const hw = this.roadW / 2;
+      const it = { cx, cy, box: { l: cx - hw, r: cx + hw, t: cy - hw, b: cy + hw },
+        stops: { [D.N]: cy + hw + 4, [D.S]: cy - hw - 4, [D.E]: cx - hw - 4, [D.W]: cx + hw + 4 },
+        laneCenters: {} };
+      for (let d = 0; d < 4; d++) { it.laneCenters[d] = [];
+        for (let la = 0; la < this.nL; la++) { it.laneCenters[d].push(this._lp(it, d, (la + .5) * this.laneW)); } }
+      this.ints.push(it);
+    });
+  }
+  _lp(it, dir, off) { const hw = this.roadW / 2;
+    switch (dir) { case D.N: return it.cx + hw - off; case D.S: return it.cx - hw + off;
+      case D.E: return it.cy + hw - off; case D.W: return it.cy - hw + off; } }
+  spawnPos(dir, lane) {
+    const m = 30; let it;
+    switch (dir) {
+      case D.N: it = this.ints.reduce((a, b) => a.cy > b.cy ? a : b); break;
+      case D.S: it = this.ints.reduce((a, b) => a.cy < b.cy ? a : b); break;
+      case D.E: it = this.ints.reduce((a, b) => a.cx < b.cx ? a : b); break;
+      case D.W: it = this.ints.reduce((a, b) => a.cx > b.cx ? a : b); break;
+    }
+    const lx = it.laneCenters[dir][cl(lane, 0, this.nL - 1)];
+    switch (dir) { case D.N: return { x: lx, y: this.H + m }; case D.S: return { x: lx, y: -m };
+      case D.E: return { x: -m, y: lx }; case D.W: return { x: this.W + m, y: lx }; } }
+  isOOB(c) { const m = 50; return c.x < -m || c.x > this.W + m || c.y < -m || c.y > this.H + m; }
+  inAnyInt(c) { return this.ints.some(it => c.x > it.box.l && c.x < it.box.r && c.y > it.box.t && c.y < it.box.b); }
+  nearInt(c) { let b = null, bd = Infinity; this.ints.forEach((it, i) => { const d = dst(c.x, c.y, it.cx, it.cy); if (d < bd) { bd = d; b = i; } }); return b; }
+  distStop(car, idx) {
+    if (idx === null || idx < 0) return null; const it = this.ints[idx]; if (!it) return null;
+    switch (car.dir) { case D.N: { const d = car.fy - it.stops[D.N]; return d > 0 ? d : null; }
+      case D.S: { const d = it.stops[D.S] - car.fy; return d > 0 ? d : null; }
+      case D.E: { const d = it.stops[D.E] - car.fx; return d > 0 ? d : null; }
+      case D.W: { const d = car.fx - it.stops[D.W]; return d > 0 ? d : null; } } return null; }
+
+  // Turn geometry: compute entry point (center of intersection) and exit point (on exit lane)
+  turnPoints(car, targetDir, intIdx) {
+    const it = this.ints[intIdx]; if (!it) return null;
+    const exitLane = rI(0, this.nL - 1);
+    // Entry point: near center of intersection, offset toward the car's incoming lane
+    const entry = { x: it.cx, y: it.cy };
+    // Adjust entry slightly toward car's lane
+    const inLane = it.laneCenters[car.dir][cl(car.lane, 0, this.nL - 1)];
+    if (car.dir === D.N || car.dir === D.S) entry.x = inLane;
+    else entry.y = inLane;
+    // Exit point: on the exit edge at the target direction's lane
+    const outLane = it.laneCenters[targetDir][cl(exitLane, 0, this.nL - 1)];
+    const exit = {};
+    switch (targetDir) {
+      case D.N: exit.x = outLane; exit.y = it.box.t - 4; break;
+      case D.S: exit.x = outLane; exit.y = it.box.b + 4; break;
+      case D.E: exit.x = it.box.r + 4; exit.y = outLane; break;
+      case D.W: exit.x = it.box.l - 4; exit.y = outLane; break;
+    }
+    return { entry, exit, exitLane };
+  }
+
+  _genBldgs() {
+    this._bldgs = []; const occ = [];
+    this.ints.forEach(it => {
+      occ.push({ l: it.cx - this.roadW / 2 - 2, r: it.cx + this.roadW / 2 + 2, t: 0, b: this.H });
+      occ.push({ l: 0, r: this.W, t: it.cy - this.roadW / 2 - 2, b: it.cy + this.roadW / 2 + 2 }); });
+    const gs = cl(Math.floor(this.W / 16), 24, 50);
+    for (let gx = 0; gx < this.W; gx += gs) { for (let gy = 0; gy < this.H; gy += gs) {
+      const bx = gx + 3, by = gy + 3, bw = gs - 6, bh = gs - 6;
+      if (occ.some(r => !(bx + bw < r.l || bx > r.r || by + bh < r.t || by > r.b))) continue;
+      if (bw < 8 || bh < 8) continue;
+      const ws = [];
+      for (let wy = by + 3; wy < by + bh - 2; wy += 6) {
+        for (let wx = bx + 2; wx < bx + bw - 2; wx += 6) {
+          if (Math.random() > .45) ws.push({ x: wx, y: wy, b: rnd(.03, .09), h: rI(170, 230), s: rI(40, 85) }); } }
+      this._bldgs.push({ x: bx, y: by, w: bw, h: bh, sh: rI(12, 20), ws }); } }
+  }
+
+  draw(ctx) {
+    ctx.fillStyle = '#060a12'; ctx.fillRect(0, 0, this.W, this.H);
+    this._bldgs.forEach(b => {
+      ctx.fillStyle = `rgb(${b.sh},${b.sh + 1},${b.sh + 4})`; ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.strokeStyle = '#151d2e'; ctx.lineWidth = .4; ctx.strokeRect(b.x, b.y, b.w, b.h);
+      b.ws.forEach(w => { ctx.fillStyle = `rgba(255,${w.h},${w.s},${w.b})`; ctx.fillRect(w.x, w.y, 3, 3); }); });
+    const rw = this.roadW, lw = this.laneW, nL = this.nL;
+    this.ints.forEach(it => {
+      ctx.fillStyle = '#171e2c'; ctx.fillRect(it.cx - rw / 2, 0, rw, this.H); ctx.fillRect(0, it.cy - rw / 2, this.W, rw);
+      ctx.fillStyle = '#1b2335'; ctx.fillRect(it.box.l, it.box.t, rw, rw); });
+    this.ints.forEach(it => {
+      ctx.strokeStyle = '#252f48'; ctx.lineWidth = 1;
+      for (let s = -1; s <= 1; s += 2) {
+        const x = it.cx + s * rw / 2;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, it.box.t); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, it.box.b); ctx.lineTo(x, this.H); ctx.stroke();
+        const y = it.cy + s * rw / 2;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(it.box.l, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(it.box.r, y); ctx.lineTo(this.W, y); ctx.stroke(); }
+      ctx.setLineDash([7, 12]);
+      for (let i = 0; i <= nL * 2; i++) {
+        const off = i * lw - rw / 2;
+        ctx.strokeStyle = i === nL ? 'rgba(255,200,0,.1)' : 'rgba(255,255,255,.04)';
+        ctx.lineWidth = i === nL ? 1 : .5;
+        const x = it.cx + off, y = it.cy + off;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, it.box.t); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, it.box.b); ctx.lineTo(x, this.H); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(it.box.l, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(it.box.r, y); ctx.lineTo(this.W, y); ctx.stroke(); }
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,255,255,.2)';
+      ctx.fillRect(it.cx, it.box.b + 3, rw / 2, 2); ctx.fillRect(it.cx - rw / 2, it.box.t - 5, rw / 2, 2);
+      ctx.fillRect(it.box.l - 5, it.cy, 2, rw / 2); ctx.fillRect(it.box.r + 3, it.cy - rw / 2, 2, rw / 2);
+      ctx.fillStyle = 'rgba(255,255,255,.04)';
+      for (let x = it.box.l; x < it.box.r; x += 7) { ctx.fillRect(x, it.box.t - 8, 3, 6); ctx.fillRect(x, it.box.b + 2, 3, 6); }
+      for (let y = it.box.t; y < it.box.b; y += 7) { ctx.fillRect(it.box.l - 8, y, 6, 3); ctx.fillRect(it.box.r + 2, y, 6, 3); }
+    });
+  }
+
+  drawLights(ctx, lcs) {
+    this.ints.forEach((it, idx) => { const lc = lcs[idx]; if (!lc) return;
+      const off = this.roadW / 2 + 14;
+      const lds = [{ d: D.N, x: it.cx + off + 6, y: it.box.b + 6 }, { d: D.S, x: it.cx - off - 6, y: it.box.t - 6 },
+        { d: D.E, x: it.box.l - 6, y: it.cy + off + 6 }, { d: D.W, x: it.box.r + 6, y: it.cy - off - 6 }];
+      lds.forEach(ld => {
+        const s = lc.get(ld.d);
+        ctx.fillStyle = '#080808'; rrF(ctx, ld.x - 12, ld.y - 5, 24, 10, 3);
+        const bx = [ld.x - 7, ld.x, ld.x + 7], bc = ['red', 'yellow', 'green'];
+        bc.forEach((c, i) => { const on = c === s;
+          ctx.beginPath(); ctx.arc(bx[i], ld.y, 2.8, 0, Math.PI * 2);
+          ctx.fillStyle = on ? { red: '#ff2020', yellow: '#ffd000', green: '#00ee77' }[c] : '#151515';
+          if (on) { ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 5; } ctx.fill(); ctx.shadowBlur = 0; });
+        ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.font = 'bold 6px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(lc.rem().toFixed(1), ld.x, ld.y + 11); }); });
+  }
+}
+
+// ═══ Mini Graph ═══
+class MG {
+  constructor(id, col, mx = 100) { this.cv = $(id); this.cx2 = this.cv.getContext('2d'); this.col = col; this.d = []; this.mx = mx; }
+  push(v) { this.d.push(v); if (this.d.length > this.mx) this.d.shift(); }
+  draw() { const c = this.cv, x = this.cx2, W = c.offsetWidth || 240, H = c.offsetHeight || 48;
+    c.width = W; c.height = H; if (this.d.length < 2) return;
+    const mx = Math.max(...this.d, 1), p = { t: 3, b: 2, l: 2, r: 2 }, pw = W - p.l - p.r, ph = H - p.t - p.b;
+    x.beginPath(); this.d.forEach((v, i) => { const px = p.l + i / (this.mx - 1) * pw, py = p.t + ph - v / mx * ph; i ? x.lineTo(px, py) : x.moveTo(px, py); });
+    const lx = p.l + (this.d.length - 1) / (this.mx - 1) * pw;
+    x.lineTo(lx, H - p.b); x.lineTo(p.l, H - p.b); x.closePath();
+    const g = x.createLinearGradient(0, p.t, 0, H - p.b); g.addColorStop(0, this.col + '44'); g.addColorStop(1, this.col + '06');
+    x.fillStyle = g; x.fill();
+    x.beginPath(); this.d.forEach((v, i) => { const px = p.l + i / (this.mx - 1) * pw, py = p.t + ph - v / mx * ph; i ? x.lineTo(px, py) : x.moveTo(px, py); });
+    x.strokeStyle = this.col; x.lineWidth = 1.3; x.lineJoin = 'round'; x.stroke();
+    const lv = this.d[this.d.length - 1], ly = p.t + ph - lv / mx * ph;
+    x.beginPath(); x.arc(lx, ly, 2, 0, Math.PI * 2); x.fillStyle = this.col; x.fill(); }
+}
+
+// ═══ Event Log ═══
+class EL { constructor() { this.e = $('eL'); this.mx = 35; }
+  log(m, t, tt = 0) { const mm = String(Math.floor(tt / 60)).padStart(2, '0'), ss = String(Math.floor(tt % 60)).padStart(2, '0');
+    const d = document.createElement('div'); d.className = 'le';
+    d.innerHTML = `<span class="lt2">${mm}:${ss}</span><span class="lm ${t}">${m}</span>`;
+    this.e.prepend(d); while (this.e.children.length > this.mx) this.e.removeChild(this.e.lastChild); } }
+
+// ═══ MAIN SIMULATION ═══
+class Sim {
+  constructor() {
+    this.cv = $('cv'); this.ctx = this.cv.getContext('2d'); this._rsz();
+    this.nL = 2; this.nI = 1; this.tP = .2;
+    this.road = new RoadNet(this.cv.width, this.cv.height, this.nL, this.nI);
+    this.lcs = this.road.ints.map(() => new LC(7, 2));
+    this.hash = new SpatialHash(30);
+    this.log = new EL(); this.cars = []; this.mode = 'safe'; this.run = false; this.lTs = null;
+    this.sT = 0; this.sSpd = 1; this.spI = .5; this.spT = 0; this.mC = 120;
+    this.sDirs = [D.S, D.W, D.N, D.E]; this.sIdx = 0;
+    this.sel = null; this.nm = 0; this.dn = 0; this.tw = 0; this.wn = 0; this.dTs = []; this._nmC = new Map();
+    this.gr = { f: new MG('gFl', '#10b981'), w: new MG('gWa', '#f97316'), s: new MG('gSp', '#00ccee'), t: new MG('gTh', '#a78bfa') };
+    this.grT = 0; this.grI = .35;
+    this.ov = { sensors: false, vectors: false, labels: false, trails: false };
+    this._bind(); this._initLP();
+    window.addEventListener('resize', () => { this._rsz(); this._reb(); });
+    this.log.log('Ready', 'i', 0); this._draw0(); this._lp = this._lp.bind(this);
+  }
+  _rsz() { const a = $('ca'), tb = a.querySelector('.tb');
+    this.cv.width = a.clientWidth; this.cv.height = a.clientHeight - (tb ? tb.offsetHeight : 34); }
+  _reb() { this.road = new RoadNet(this.cv.width, this.cv.height, this.nL, this.nI);
+    this.lcs = this.road.ints.map(() => new LC(parseFloat($('gT').value), parseFloat($('yT').value)));
+    this.cars = []; this.sel = null; this._draw0(); this._initLP(); }
+  _draw0() { this.road.draw(this.ctx); this.road.drawLights(this.ctx, this.lcs); }
+
+  _bind() {
+    $('bP').onclick = () => this.play(); $('bU').onclick = () => this.pause(); $('bR').onclick = () => this.reset();
+    $('bSt').onclick = () => { if (!this.run) this._step(1 / 30); };
+    $('bCa').onclick = () => { const l = document.createElement('a'); l.download = 'traffic.png'; l.href = this.cv.toDataURL(); l.click(); };
+    this._sl('sR', 'sRV', v => { this.spI = v; return v.toFixed(2) + 's'; });
+    this._sl('mC', 'mCV', v => { this.mC = v; return v; });
+    this._sl('gT', 'gTV', v => { this.lcs.forEach(l => l.cfg({ g: v })); return v + 's'; });
+    this._sl('yT', 'yTV', v => { this.lcs.forEach(l => l.cfg({ y: v })); return v + 's'; });
+    this._sl('sS', 'sSV', v => { this.sSpd = v; return v.toFixed(1) + '×'; });
+    this._sl('nL', 'nLV', v => { this.nL = v; this._reb(); return v; });
+    this._sl('nI', 'nIV', v => { this.nI = v; this._reb(); return v; });
+    this._sl('tP', 'tPV', v => { this.tP = v / 100; return v + '%'; });
+    document.querySelectorAll('.mb').forEach(b => b.onclick = () => {
+      document.querySelectorAll('.mb').forEach(x => x.classList.remove('on'));
+      b.classList.add('on'); this.setMode(b.dataset.m); });
+    const om = { oSe: 'sensors', oVe: 'vectors', oLa: 'labels', oTr: 'trails' };
+    Object.entries(om).forEach(([id, k]) => { $(id).onchange = e => { this.ov[k] = e.target.checked; }; });
+    this.cv.onclick = e => { const r = this.cv.getBoundingClientRect();
+      this._selAt((e.clientX - r.left) * this.cv.width / r.width, (e.clientY - r.top) * this.cv.height / r.height); };
+    document.onkeydown = e => { if (e.target.tagName === 'INPUT') return;
+      switch (e.key) { case ' ': e.preventDefault(); this.run ? this.pause() : this.play(); break;
+        case 'r': case 'R': this.reset(); break;
+        case '1': document.querySelector('[data-m="safe"]').click(); break;
+        case '2': document.querySelector('[data-m="aggressive"]').click(); break;
+        case '3': document.querySelector('[data-m="emergency"]').click(); break; } };
+  }
+  _sl(id, vid, fn) { const el = $(id), v = $(vid); el.oninput = () => { v.textContent = fn(parseFloat(el.value)); }; }
+  _initLP() { const g = $('lGd'); g.innerHTML = '';
+    this.road.ints.forEach((it, idx) => { [D.N, D.E, D.S, D.W].forEach(d => {
+      g.innerHTML += `<div class="lce"><div class="ldr">${this.nI > 1 ? 'I' + (idx + 1) + ' ' : ''}${DN[d]}</div>
+<div class="lbr"><div class="blb r" id="b${idx}${d}r"></div><div class="blb y" id="b${idx}${d}y"></div>
+<div class="blb g" id="b${idx}${d}g"></div></div><div class="ltm" id="t${idx}${d}">-</div></div>`; }); }); }
+  _uLP() { this.road.ints.forEach((it, idx) => { const lc = this.lcs[idx];
+    [D.N, D.E, D.S, D.W].forEach(d => { const s = lc.get(d), rm = lc.rem();
+      const rb = $(`b${idx}${d}r`), yb = $(`b${idx}${d}y`), gb = $(`b${idx}${d}g`);
+      if (rb) rb.className = 'blb r' + (s === 'red' ? ' on' : '');
+      if (yb) yb.className = 'blb y' + (s === 'yellow' ? ' on' : '');
+      if (gb) gb.className = 'blb g' + (s === 'green' ? ' on' : '');
+      const lt = $(`t${idx}${d}`); if (lt) lt.textContent = rm.toFixed(1) + 's'; }); }); }
+
+  play() { if (this.run) return; this.run = true; this.lTs = performance.now();
+    $('sDot').className = 'dot on'; $('sTxt').textContent = 'Running';
+    this.log.log('Started', 'g', this.sT); requestAnimationFrame(this._lp); }
+  pause() { this.run = false; $('sDot').className = 'dot pa'; $('sTxt').textContent = 'Paused'; }
+  reset() { this.run = false; this.lTs = null; this.sT = 0; this.spT = 0; this.sIdx = 0;
+    this.cars = []; this.sel = null; this.nm = 0; this.dn = 0; this.tw = 0; this.wn = 0;
+    this.dTs = []; this._nmC.clear(); this.grT = 0;
+    Object.values(this.gr).forEach(g => g.d = []);
+    this.lcs = this.road.ints.map(() => new LC(parseFloat($('gT').value), parseFloat($('yT').value)));
+    $('sDot').className = 'dot'; $('sTxt').textContent = 'Stopped';
+    this.log.log('Reset', 'i', 0); this._uLP(); this._uIns(); this._draw0(); }
+  setMode(m) { this.mode = m; this.cars.forEach(c => c.setMode(m));
+    const ds = { safe: 'Safe: Large gaps, early braking, full stops at yellows.',
+      aggressive: 'Aggressive: Tight gaps, late braking, pushes yellows.',
+      emergency: 'Emergency: Minimal gaps, runs yellows, max urgency!' };
+    $('mD').textContent = ds[m]; this.log.log('Mode → ' + m.toUpperCase(), 'i', this.sT); }
+
+  _step(dt) { this._upd(dt); this._rend(); }
+  _lp(ts) { if (!this.run) return; const rdt = Math.min((ts - this.lTs) / 1000, .05); this.lTs = ts;
+    this._upd(rdt * this.sSpd); this._rend(); requestAnimationFrame(this._lp); }
+
+  _upd(dt) {
+    this.sT += dt; this.lcs.forEach(l => l.update(dt)); this._spawn(dt);
+
+    // Build spatial hash
+    this.hash.clear();
+    this.cars.forEach(c => this.hash.insert(c));
+
+    // Collision resolution: push apart any overlapping cars
+    this._resolveCollisions();
+
+    this.cars.forEach(c => {
+      if (this.ov.trails) c.pushTrail();
+      const inp = this._sense(c);
+      c.update(dt, inp);
+      // Turn decision at intersection entry
+      if (!c.isTurning && !c.hasTurnDecision && this.road.inAnyInt(c)) {
+        const ni = this.road.nearInt(c);
+        if (ni !== null && c.iIdx === -1) {
+          c.iIdx = ni; c.hasTurnDecision = true;
+          if (Math.random() < this.tP) {
+            const target = pick([RT(c.dir), LT(c.dir)]);
+            const tp = this.road.turnPoints(c, target, ni);
+            if (tp) { c.setupTurn(target, tp.entry, tp.exit); c.lane = tp.exitLane; }
+          }
+        }
+      }
+      if (!this.road.inAnyInt(c) && c.iIdx >= 0) { c.iIdx = -1; c.hasTurnDecision = false; }
+    });
+
+    this._nmChk(); this._cull(); this._stats(dt); this._uLP(); this._uIns();
+  }
+
+  _resolveCollisions() {
+    // Prevent any two cars from overlapping
+    for (let i = 0; i < this.cars.length; i++) {
+      const a = this.cars[i];
+      const nearby = this.hash.query(a.x, a.y, 24);
+      for (let j = 0; j < nearby.length; j++) {
+        const b = nearby[j];
+        if (b.id <= a.id) continue;
+        const d = dst(a.x, a.y, b.x, b.y);
+        const minDist = 14; // minimum distance between car centers
+        if (d < minDist && d > 0.1) {
+          const overlap = (minDist - d) / 2;
+          const dx = (b.x - a.x) / d;
+          const dy = (b.y - a.y) / d;
+          a.x -= dx * overlap;
+          a.y -= dy * overlap;
+          b.x += dx * overlap;
+          b.y += dy * overlap;
+          // Both cars slow down
+          a.speed *= 0.7;
+          b.speed *= 0.7;
+        }
+      }
+    }
+  }
+
+  _spawn(dt) {
+    this.spT += dt; if (this.spT < this.spI) return;
+    const batch = cl(Math.floor(this.spT / Math.max(this.spI, 0.02)), 1, 16);
+    for (let b = 0; b < batch; b++) {
+      if (this.cars.length >= this.mC) break;
+      const dir = this.sDirs[this.sIdx % 4]; this.sIdx++;
+      const lane = rI(0, this.nL - 1);
+      const pos = this.road.spawnPos(dir, lane);
+      if (!this.cars.some(c => dst(c.x, c.y, pos.x, pos.y) < 22)) {
+        const car = new Car({ x: pos.x, y: pos.y, dir, lane, mode: this.mode, t: this.sT });
+        car.iIdx = -1; car.hasTurnDecision = false;
+        this.cars.push(car);
+      }
+    }
+    this.spT = 0;
+  }
+
+  _sense(car) {
+    const dv = car.dv; let minG = null, spA = null;
+    // Collision gap: closest car in ANY direction ahead
+    let collGap = null;
+
+    const nearby = this.hash.query(car.x, car.y, car.brain.sr);
+
+    for (let i = 0; i < nearby.length; i++) {
+      const o = nearby[i];
+      if (o.id === car.id) continue;
+      const rx = o.x - car.x, ry = o.y - car.y;
+      const fwd = rx * dv.x + ry * dv.y;
+
+      // Same direction following — standard IDM
+      if (!car.isTurning && !o.isTurning && o.dir === car.dir) {
+        if (fwd > 0 && fwd < car.brain.sr) {
+          const lat = Math.abs(rx * dv.y - ry * dv.x);
+          if (lat < this.road.laneW * 1.1) {
+            if (minG === null || fwd < minG) { minG = fwd; spA = o.speed; }
+          }
+        }
+      }
+
+      // Universal forward collision detection — ANY car ahead within lane width
+      if (fwd > 0 && fwd < 60) {
+        const lat = Math.abs(rx * dv.y - ry * dv.x);
+        if (lat < car.W * 1.5) {
+          if (collGap === null || fwd < collGap) { collGap = fwd; }
+        }
+      }
+    }
+
+    const ni = this.road.nearInt(car); const lc = ni !== null ? this.lcs[ni] : null;
+    const lS = lc ? lc.get(car.dir) : null;
+    const dL = this.road.distStop(car, ni);
+    const lR = lc ? lc.rem() : null;
+    const inI = this.road.inAnyInt(car);
+    let cross = null;
+    if (inI) {
+      for (let i = 0; i < nearby.length; i++) {
+        const o = nearby[i];
+        if (o.id === car.id || o.dir === car.dir || o.dir === OPP(car.dir)) continue;
+        const d = dst(car.x, car.y, o.x, o.y);
+        if (cross === null || d < cross) cross = d;
+      }
+    }
+    return { speed: car.speed, maxSpeed: car.maxSpeed, gap: minG, spdA: spA,
+      dL, lS, lR, inI, cross, collGap };
+  }
+
+  _nmChk() {
+    for (let i = 0; i < this.cars.length; i++) {
+      const a = this.cars[i];
+      const nearby = this.hash.query(a.x, a.y, 18);
+      for (let j = 0; j < nearby.length; j++) {
+        const b = nearby[j];
+        if (b.id <= a.id) continue;
+        if (a.dir === b.dir || a.dir === OPP(b.dir)) continue;
+        const d = dst(a.x, a.y, b.x, b.y);
+        if (d < 15) {
+          const k = Math.min(a.id, b.id) + '-' + Math.max(a.id, b.id);
+          const lt = this._nmC.get(k) || 0;
+          if (this.sT - lt > 3) { this.nm++; this._nmC.set(k, this.sT);
+            this.log.log(`⚠ Near miss #${a.id}&#${b.id}`, 'd', this.sT); }
+        }
+      }
+    }
+  }
+
+  _cull() {
+    this.cars = this.cars.filter(c => {
+      if (!this.road.isOOB(c)) return true;
+      c.alive = false; this.dn++; this.dTs.push(this.sT); this.tw += c.wt; this.wn++; return false; });
+    this.dTs = this.dTs.filter(t => this.sT - t < 60); }
+
+  _stats(dt) {
+    this.grT += dt; if (this.grT < this.grI) return; this.grT = 0;
+    const aw = this.wn > 0 ? this.tw / this.wn : 0, fl = this.dTs.length;
+    const as = this.cars.length > 0 ? this.cars.reduce((s, c) => s + c.speed, 0) / this.cars.length : 0;
+    this.gr.f.push(fl); this.gr.w.push(aw); this.gr.s.push(as); this.gr.t.push(this.dn);
+    this.gr.f.draw(); this.gr.w.draw(); this.gr.s.draw(); this.gr.t.draw();
+    $('gFC').textContent = fl; $('gWC').textContent = aw.toFixed(1) + 's';
+    $('gSC').textContent = as.toFixed(0); $('gTC').textContent = this.dn;
+    $('xC').textContent = this.cars.length; $('xF').textContent = fl;
+    $('xW').textContent = aw.toFixed(1) + 's'; $('xN').textContent = this.nm;
+    $('xS').textContent = as.toFixed(0); $('xD').textContent = this.dn;
+    const mm = String(Math.floor(this.sT / 60)).padStart(2, '0'), ss = String(Math.floor(this.sT % 60)).padStart(2, '0');
+    $('tTm').textContent = mm + ':' + ss; }
+
+  _rend() {
+    const ctx = this.ctx; ctx.clearRect(0, 0, this.cv.width, this.cv.height);
+    this.road.draw(ctx); this.road.drawLights(ctx, this.lcs);
+    [...this.cars].sort((a, b) => a.y - b.y).forEach(c => c.draw(ctx, this.ov)); }
+
+  _selAt(mx, my) {
+    if (this.sel) this.sel.sel = false; this.sel = null;
+    let best = null, bd = 18;
+    this.cars.forEach(c => { const d = dst(mx, my, c.x, c.y); if (d < bd) { bd = d; best = c; } });
+    if (best) { best.sel = true; this.sel = best; } this._uIns(); }
+
+  _uIns() {
+    const el = $('ins'), c = this.sel;
+    if (!c || !c.alive) { el.innerHTML = '<div class="ie">🖱️ Click car to inspect</div>'; return; }
+    const ls = c.sn.lS || 'N/A', lc = { green: 'grn', yellow: 'ylw', red: 'rdd', 'N/A': '' }[ls] || '';
+    const sp = Math.round(c.speed / c.maxSpeed * 100);
+    const turnInfo = c.isTurning ? `→ ${DN[c.turnExitDir]}` : 'No';
+    el.innerHTML = `<div class="ic">
+<div class="ch2"><div class="csw" style="background:${c.color}"></div>
+<div class="cid">#${c.id}</div><div class="cmb ${c.brain.mode}">${c.brain.mode}</div></div>
+<div class="ir"><span class="il">Dir</span><span class="iv blu">${DN[c.dir]}${c.isTurning ? ' ↻' : ''}</span></div>
+<div class="ir"><span class="il">Speed</span><span class="iv">${c.speed.toFixed(1)}</span></div>
+<div class="sbw"><div class="sbf" style="width:${sp}%"></div></div>
+<div class="ir"><span class="il">Accel</span><span class="iv ${c.acc >= 0 ? 'grn' : 'rdd'}">${c.acc >= 0 ? '+' : ''}${c.acc.toFixed(1)}</span></div>
+<div class="ir"><span class="il">Gap</span><span class="iv">${c.sn.gap !== null ? c.sn.gap.toFixed(0) + 'px' : '<span class="grn">clear</span>'}</span></div>
+<div class="ir"><span class="il">Coll Gap</span><span class="iv ${c.sn.collGap !== null && c.sn.collGap < 30 ? 'rdd' : 'grn'}">${c.sn.collGap !== null ? c.sn.collGap.toFixed(0) + 'px' : '—'}</span></div>
+<div class="ir"><span class="il">Light</span><span class="iv ${lc}">${ls.toUpperCase()}</span></div>
+<div class="ir"><span class="il">D→Line</span><span class="iv">${c.sn.dL !== null ? c.sn.dL.toFixed(0) + 'px' : 'past'}</span></div>
+<div class="ir"><span class="il">InInt</span><span class="iv ${c.sn.inI ? 'ylw' : 'grn'}">${c.sn.inI ? 'Y' : 'N'}</span></div>
+<div class="ir"><span class="il">Cross</span><span class="iv ${c.sn.cross !== null ? 'rdd' : 'grn'}">${c.sn.cross !== null ? c.sn.cross.toFixed(0) + 'px' : '—'}</span></div>
+<div class="ir"><span class="il">Wait</span><span class="iv">${c.wt.toFixed(1)}s</span></div>
+<div class="ir"><span class="il">Turn</span><span class="iv ${c.isTurning ? 'ylw' : 'grn'}">${turnInfo}</span></div>
+<div class="ir"><span class="il">Lane</span><span class="iv">${c.lane}</span></div>
+<div class="db">💭 ${c.reason}</div></div>`; }
+}
+
+window.onload = () => { window.sim = new Sim(); };
+</script>
+</body>
+</html>
